@@ -2,9 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'add_part_screen.dart';
 import 'part_details_screen.dart';
+import '../models/part.dart';
+import '../services/api_service.dart';
 
-class InventoryScreen extends StatelessWidget {
+class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
+  @override
+  State<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends State<InventoryScreen> {
+  final ApiService _apiService = ApiService();
+  late Future<List<Part>> _partsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _partsFuture = _apiService.getParts();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -90,25 +108,82 @@ class InventoryScreen extends StatelessWidget {
               children: [
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerLow),
-                    columns: [
-                      DataColumn(label: Text('')), // Checkbox placeholder if needed
-                      DataColumn(label: Text('PART NAME', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('PART NUMBER', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('CATEGORY', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('STOCK LEVEL', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                      DataColumn(label: Text('TREND', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('STATUS', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('ACTION', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: [
-                      _buildInventoryRow(context, 'Ceramic Brake Pads', 'BRK-9921-C', 'Braking System', '145', 'In Stock', Color(0xFF008CC7), Theme.of(context).colorScheme.tertiaryContainer, Theme.of(context).colorScheme.onTertiaryContainer, [100, 110, 120, 145]),
-                      _buildInventoryRow(context, 'Synthetic Oil Filter', 'OIL-F44-SY', 'Engine Components', '12', 'Low Stock', const Color(0xFFBA1A1A), const Color(0xFFFFDAD6), const Color(0xFF93000A), [40, 30, 20, 12]),
-                      _buildInventoryRow(context, 'Heavy Duty Alternator', 'ALT-800-HD', 'Electrical', '0', 'Out of Stock', Theme.of(context).colorScheme.outline, Theme.of(context).colorScheme.surfaceContainerHighest, Theme.of(context).colorScheme.onSurfaceVariant, [10, 5, 2, 0]),
-                      _buildInventoryRow(context, 'Spark Plug Set (V6)', 'IGN-SPK-6', 'Ignition System', '85', 'In Stock', Color(0xFF008CC7), Theme.of(context).colorScheme.tertiaryContainer, Theme.of(context).colorScheme.onTertiaryContainer, [80, 82, 85, 85]),
-                      _buildInventoryRow(context, 'Cabin Air Filter', 'FLT-CAB-22', 'HVAC', '210', 'In Stock', Color(0xFF008CC7), Theme.of(context).colorScheme.tertiaryContainer, Theme.of(context).colorScheme.onTertiaryContainer, [150, 180, 200, 210]),
-                    ],
+                  child: FutureBuilder<List<Part>>(
+                    future: _partsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(),
+                        ));
+                      } else if (snapshot.hasError) {
+                        return Center(child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Text('Error: ${snapshot.error}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        ));
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Text('No parts found in inventory.'),
+                        ));
+                      }
+
+                      final parts = snapshot.data!;
+
+                      return DataTable(
+                        headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerLow),
+                        columns: const [
+                          DataColumn(label: Text('')), // Checkbox placeholder if needed
+                          DataColumn(label: Text('PART NAME', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('PART NUMBER', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('CATEGORY', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('STOCK LEVEL', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                          DataColumn(label: Text('TREND', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('STATUS', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('ACTION', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                        rows: parts.map((part) {
+                          Color statusBorderColor;
+                          Color statusBgColor;
+                          Color statusTextColor;
+                          Color trendColor;
+                          
+                          if (part.quantityOnHand == 0) {
+                            statusBorderColor = Theme.of(context).colorScheme.outline;
+                            statusBgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+                            statusTextColor = Theme.of(context).colorScheme.onSurfaceVariant;
+                            trendColor = Theme.of(context).colorScheme.outline;
+                          } else if (part.quantityOnHand <= part.reorderPoint) {
+                            statusBorderColor = const Color(0xFFBA1A1A);
+                            statusBgColor = const Color(0xFFFFDAD6);
+                            statusTextColor = const Color(0xFF93000A);
+                            trendColor = Theme.of(context).colorScheme.error;
+                          } else {
+                            statusBorderColor = const Color(0xFF008CC7);
+                            statusBgColor = Theme.of(context).colorScheme.tertiaryContainer;
+                            statusTextColor = Theme.of(context).colorScheme.onTertiaryContainer;
+                            trendColor = Colors.green;
+                          }
+
+                          // Mock trend data for visualization purposes
+                          final trendSpots = [10.0, 15.0, 12.0, part.quantityOnHand.toDouble()];
+
+                          return _buildInventoryRow(
+                            context,
+                            part.name,
+                            part.sku,
+                            part.category ?? 'Uncategorized',
+                            part.quantityOnHand.toString(),
+                            part.status,
+                            statusBorderColor,
+                            statusBgColor,
+                            statusTextColor,
+                            trendColor,
+                            trendSpots,
+                          );
+                        }).toList(),
+                      );
+                    }
                   ),
                 ),
                 Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
@@ -192,7 +267,7 @@ class InventoryScreen extends StatelessWidget {
     );
   }
 
-  DataRow _buildInventoryRow(BuildContext context, String name, String number, String category, String stockLevel, String status, Color statusBorderColor, Color statusBgColor, Color statusTextColor, List<double> spots) {
+  DataRow _buildInventoryRow(BuildContext context, String name, String number, String category, String stockLevel, String status, Color statusBorderColor, Color statusBgColor, Color statusTextColor, Color trendColor, List<double> spots) {
     return DataRow(
       onSelectChanged: (_) {
         Navigator.push(
@@ -223,7 +298,7 @@ class InventoryScreen extends StatelessWidget {
                   LineChartBarData(
                     spots: List.generate(spots.length, (index) => FlSpot(index.toDouble(), spots[index])),
                     isCurved: true,
-                    color: stockLevel == '0' ? Theme.of(context).colorScheme.outline : (stockLevel == '12' ? Theme.of(context).colorScheme.error : Colors.green),
+                    color: trendColor,
                     barWidth: 2,
                     isStrokeCapRound: true,
                     dotData: const FlDotData(show: false),

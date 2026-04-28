@@ -75,7 +75,7 @@ class _MainShellState extends State<MainShell> {
                 ),
               ),
             ),
-      drawer: isDesktop ? null : _buildDrawer(),
+      // drawer: isDesktop ? null : _buildDrawer(), // Removed drawer for mobile, relying on BottomNavigationBar
       body: Row(
         children: [
           if (isDesktop) _buildDesktopDrawer(),
