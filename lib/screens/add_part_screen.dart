@@ -1,8 +1,73 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../services/api_service.dart';
 
-class AddPartScreen extends StatelessWidget {
+class AddPartScreen extends StatefulWidget {
   const AddPartScreen({super.key});
+
+  @override
+  State<AddPartScreen> createState() => _AddPartScreenState();
+}
+
+class _AddPartScreenState extends State<AddPartScreen> {
+  final _nameCtrl = TextEditingController();
+  final _skuCtrl = TextEditingController();
+  final _oemCtrl = TextEditingController();
+  final _materialCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
+  final _dimCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController();
+  final _reorderCtrl = TextEditingController();
+  final _costCtrl = TextEditingController();
+
+  String? _category;
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _skuCtrl.dispose();
+    _oemCtrl.dispose();
+    _materialCtrl.dispose();
+    _weightCtrl.dispose();
+    _dimCtrl.dispose();
+    _qtyCtrl.dispose();
+    _reorderCtrl.dispose();
+    _costCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _savePart() async {
+    if (_nameCtrl.text.isEmpty || _skuCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name and SKU are required')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await ApiService().addPart({
+        'name': _nameCtrl.text,
+        'sku': _skuCtrl.text,
+        'oem_number': _oemCtrl.text,
+        'category': _category,
+        'material': _materialCtrl.text,
+        'weight_kg': double.tryParse(_weightCtrl.text),
+        'dimensions': _dimCtrl.text,
+        'quantity_on_hand': int.tryParse(_qtyCtrl.text) ?? 0,
+        'reorder_point': int.tryParse(_reorderCtrl.text) ?? 0,
+        'unit_cost': double.tryParse(_costCtrl.text) ?? 0.0,
+      });
+      if (mounted) {
+        Navigator.pop(context, true); // Return true to signal success
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: \$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +93,10 @@ class AddPartScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TextButton(
-              onPressed: () {},
-              child: const Text('SAVE PART', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: _isSaving ? null : _savePart,
+              child: _isSaving 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('SAVE PART', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -42,7 +109,6 @@ class AddPartScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Form Header Area
                 Text('New Component Profile', style: Theme.of(context).textTheme.displayLarge),
                 const SizedBox(height: 8),
                 Text(
@@ -50,7 +116,6 @@ class AddPartScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),
-                // Form Layout
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final isDesktop = constraints.maxWidth > 768;
@@ -111,7 +176,7 @@ class AddPartScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             OutlinedButton(
-              onPressed: () {},
+              onPressed: () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Theme.of(context).colorScheme.outline),
                 foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -122,8 +187,10 @@ class AddPartScreen extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.save, size: 18),
+              onPressed: _isSaving ? null : _savePart,
+              icon: _isSaving 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save, size: 18),
               label: const Text('Save Part'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
@@ -145,13 +212,13 @@ class AddPartScreen extends StatelessWidget {
       icon: Icons.info_outline,
       child: Column(
         children: [
-          _buildTextField(context, 'PART NAME', 'e.g. High-Pressure Valve Assembly'),
+          _buildTextField(context, 'PART NAME', 'e.g. High-Pressure Valve Assembly', controller: _nameCtrl),
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _buildTextField(context, 'INTERNAL SKU', 'PRC-VAL-0092')),
+              Expanded(child: _buildTextField(context, 'INTERNAL SKU', 'PRC-VAL-0092', controller: _skuCtrl)),
               const SizedBox(width: 16),
-              Expanded(child: _buildTextField(context, 'OEM NUMBER', 'Mfg Part #')),
+              Expanded(child: _buildTextField(context, 'OEM NUMBER', 'Mfg Part #', controller: _oemCtrl)),
             ],
           ),
           const SizedBox(height: 24),
@@ -168,11 +235,11 @@ class AddPartScreen extends StatelessWidget {
       icon: Icons.straighten,
       child: Row(
         children: [
-          Expanded(child: _buildTextField(context, 'PRIMARY MATERIAL', 'e.g. 316L Stainless')),
+          Expanded(child: _buildTextField(context, 'PRIMARY MATERIAL', 'e.g. 316L Stainless', controller: _materialCtrl)),
           const SizedBox(width: 16),
-          Expanded(child: _buildTextField(context, 'WEIGHT (KG)', '0.00', isNumber: true)),
+          Expanded(child: _buildTextField(context, 'WEIGHT (KG)', '0.00', isNumber: true, controller: _weightCtrl)),
           const SizedBox(width: 16),
-          Expanded(child: _buildTextField(context, 'DIMENSIONS (LXWXH MM)', '0 x 0 x 0')),
+          Expanded(child: _buildTextField(context, 'DIMENSIONS (LXWXH MM)', '0 x 0 x 0', controller: _dimCtrl)),
         ],
       ),
     );
@@ -186,11 +253,11 @@ class AddPartScreen extends StatelessWidget {
       accentColor: Theme.of(context).colorScheme.secondary,
       child: Column(
         children: [
-          _buildTextField(context, 'INITIAL QUANTITY', '0', icon: Icons.tag, isNumber: true),
+          _buildTextField(context, 'INITIAL QUANTITY', '0', icon: Icons.tag, isNumber: true, controller: _qtyCtrl),
           const SizedBox(height: 24),
-          _buildTextField(context, 'REORDER THRESHOLD', 'Minimum stock level', icon: Icons.warning_amber_rounded, isNumber: true),
+          _buildTextField(context, 'REORDER THRESHOLD', 'Minimum stock level', icon: Icons.warning_amber_rounded, isNumber: true, controller: _reorderCtrl),
           const SizedBox(height: 24),
-          _buildTextField(context, 'EST. UNIT COST (USD)', '0.00', prefixText: '\$', isNumber: true),
+          _buildTextField(context, 'EST. UNIT COST (USD)', '0.00', prefixText: '\$', isNumber: true, controller: _costCtrl),
         ],
       ),
     );
@@ -260,13 +327,14 @@ class AddPartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTextField(BuildContext context, String label, String hint, {IconData? icon, String? prefixText, bool isNumber = false}) {
+  Widget _buildTextField(BuildContext context, String label, String hint, {IconData? icon, String? prefixText, bool isNumber = false, TextEditingController? controller}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
           decoration: InputDecoration(
             hintText: hint,
@@ -295,7 +363,7 @@ class AddPartScreen extends StatelessWidget {
       children: [
         Text(label, style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
+        InputDecorator(
           decoration: InputDecoration(
             filled: true,
             fillColor: Theme.of(context).colorScheme.surface,
@@ -307,18 +375,29 @@ class AddPartScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           ),
-          hint: Text(hint),
-          items: [
-            DropdownMenuItem(value: 'pneumatics', child: Text('Pneumatics & Hydraulics')),
-            DropdownMenuItem(value: 'electrical', child: Text('Electrical Components')),
-            DropdownMenuItem(value: 'mechanical', child: Text('Mechanical Drives')),
-            DropdownMenuItem(value: 'structural', child: Text('Structural Fasteners')),
-          ],
-          onChanged: (value) {},
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _category,
+              isExpanded: true,
+              hint: Text(hint),
+              items: const [
+                DropdownMenuItem(value: 'pneumatics', child: Text('Pneumatics & Hydraulics')),
+                DropdownMenuItem(value: 'electrical', child: Text('Electrical Components')),
+                DropdownMenuItem(value: 'mechanical', child: Text('Mechanical Drives')),
+                DropdownMenuItem(value: 'structural', child: Text('Structural Fasteners')),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _category = value;
+                });
+              },
+            ),
+          ),
         ),
       ],
     );
   }
 }
+

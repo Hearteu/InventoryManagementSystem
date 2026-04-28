@@ -47,11 +47,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const AddPartScreen()),
                   );
+                  if (result == true) {
+                    setState(() {
+                      _partsFuture = _apiService.getParts();
+                    });
+                  }
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Add New Part'),

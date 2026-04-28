@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/hover_card.dart';
+import '../services/api_service.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late Future<Map<String, dynamic>> _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _statsFuture = ApiService().getDashboardStats();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,59 +99,74 @@ class DashboardScreen extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           // Metrics Bento Grid
-          LayoutBuilder(
-            builder: (context, constraints) {
-              int crossAxisCount = 1;
-              if (constraints.maxWidth > 1024) { crossAxisCount = 4; }
-              else if (constraints.maxWidth > 600) { crossAxisCount = 2; }
+          FutureBuilder<Map<String, dynamic>>(
+            future: _statsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error loading stats: \${snapshot.error}'));
+              }
+              
+              final stats = snapshot.data ?? {};
+              final totalParts = stats['total_parts']?.toString() ?? '0';
+              final totalValue = '\$${stats['total_value']?.toStringAsFixed(2) ?? '0.00'}';
+              final lowStock = stats['low_stock_alerts']?.toString() ?? '0';
+              final pendingMovs = stats['recent_movements']?.toString() ?? '0';
 
-              return GridView.count(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.8,
-                children: [
-                  _buildMetricCard(
-                    context,
-                    title: 'TOTAL PARTS',
-                    icon: Icons.inventory_2_outlined,
-                    value: '14,285',
-                    trend: '+2.4% from last month',
-                    trendUp: true,
-                    spots: [100, 105, 110, 108, 115, 120, 130],
-                  ),
-                  _buildMetricCard(
-                    context,
-                    title: 'LOW STOCK ALERTS',
-                    icon: Icons.warning_amber_rounded,
-                    value: '24',
-                    trend: 'Requires immediate attention',
-                    isAlert: true,
-                    spots: [5, 6, 8, 12, 18, 22, 24],
-                  ),
-                  _buildMetricCard(
-                    context,
-                    title: 'TOTAL VALUE',
-                    icon: Icons.payments_outlined,
-                    value: '\$1.2M',
-                    trend: '+0.8% variance',
-                    trendUp: true,
-                    spots: [1.1, 1.15, 1.12, 1.16, 1.18, 1.19, 1.2],
-                  ),
-                  _buildMetricCard(
-                    context,
-                    title: 'PENDING MOVEMENTS',
-                    icon: Icons.sync_alt,
-                    value: '18',
-                    trend: 'In transit or processing',
-                    spots: [10, 12, 15, 12, 14, 16, 18],
-                  ),
-                ],
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  int crossAxisCount = 1;
+                  if (constraints.maxWidth > 1024) { crossAxisCount = 4; }
+                  else if (constraints.maxWidth > 600) { crossAxisCount = 2; }
+
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.8,
+                    children: [
+                      _buildMetricCard(
+                        context,
+                        title: 'TOTAL PARTS',
+                        icon: Icons.inventory_2_outlined,
+                        value: totalParts,
+                        trend: 'Live from database',
+                        trendUp: true,
+                      ),
+                      _buildMetricCard(
+                        context,
+                        title: 'LOW STOCK ALERTS',
+                        icon: Icons.warning_amber_rounded,
+                        value: lowStock,
+                        trend: 'Requires attention',
+                        isAlert: int.tryParse(lowStock) != null && int.parse(lowStock) > 0,
+                      ),
+                      _buildMetricCard(
+                        context,
+                        title: 'TOTAL VALUE',
+                        icon: Icons.payments_outlined,
+                        value: totalValue,
+                        trend: 'Live valuation',
+                        trendUp: true,
+                      ),
+                      _buildMetricCard(
+                        context,
+                        title: 'RECENT MOVEMENTS',
+                        icon: Icons.sync_alt,
+                        value: pendingMovs,
+                        trend: 'Last 24 hours',
+                      ),
+                    ],
+                  );
+                },
               );
-            },
+            }
           ),
+
           const SizedBox(height: 24),
           // Complex Layout Section
           LayoutBuilder(builder: (context, constraints) {

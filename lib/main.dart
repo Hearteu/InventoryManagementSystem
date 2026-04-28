@@ -5,6 +5,8 @@ import 'screens/dashboard_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/stock_movement_screen.dart';
 import 'screens/suppliers_screen.dart';
+import 'screens/login_screen.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const IMSApp());
@@ -20,7 +22,18 @@ class IMSApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const MainShell(),
+      home: FutureBuilder<String?>(
+        future: ApiService.getToken(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          if (snapshot.hasData && snapshot.data != null) {
+            return const MainShell();
+          }
+          return const LoginScreen();
+        },
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -165,18 +178,7 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildDrawer() {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-        child: Drawer(
-          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
-          elevation: 0,
-          child: _buildDrawerContent(),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildDesktopDrawer() {
     return ClipRect(
