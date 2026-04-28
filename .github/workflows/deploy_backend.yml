@@ -1,0 +1,50 @@
+name: Deploy Backend to OCI VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**' # Only run this workflow if changes are made to the backend folder
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Get Dependencies
+        working-directory: ./backend
+        run: dart pub get
+
+      - name: Compile Backend to Native Executable
+        working-directory: ./backend
+        run: dart compile exe bin/server.dart -o ims_server
+
+      - name: Copy Executable to OCI VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          source: "backend/ims_server"
+          target: "/home/${{ secrets.OCI_USERNAME }}/ims_backend"
+          strip_components: 1
+
+      - name: Restart Backend Service on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USERNAME }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            # Make the binary executable
+            chmod +x /home/${{ secrets.OCI_USERNAME }}/ims_backend/ims_server
+            
+            # Restart the systemd service (we will set this up next)
+            sudo systemctl restart ims_backend.service
